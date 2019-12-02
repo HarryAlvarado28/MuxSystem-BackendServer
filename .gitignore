@@ -10,3 +10,10 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+
+/instantclient_19_3
+
+.vscode
+
+.DS_Store
