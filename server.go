@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/labstack/echo"
@@ -53,6 +54,66 @@ type (
 	}
 )
 
+type (
+	Mensaje struct {
+		ID      int    `json:"id"`
+		Mensaje string `json:"nombre"`
+		Error   error  `json:"error"`
+	}
+)
+
+func rolAll(c echo.Context) error {
+	m := &Mensaje{
+		ID:      02,
+		Mensaje: "Elemento no encontrado",
+	}
+	r := &rol{}
+	if err := c.Bind(r); err != nil {
+		return err
+	}
+	rAll := make([]rol, 0)
+
+	db, err := sql.Open("goracle", "HARRY/123456@localhost/xe")
+	wid, _ := strconv.Atoi(c.Param("id"))
+	if wid != 0 {
+		row := db.QueryRow("SELECT ID, NOMBRE, DESCRIPCION,	ACTIVO,	FECHA_INSERTADA, ID_USUARIO_INSERCION, FECHA_ULT_MOD, ID_USUARIO_ULT_MOD FROM roles WHERE id = :1", wid)
+		err = row.Scan(&r.ID, &r.Nombre, &r.Descripcion, &r.Activo, &r.FechaInsertada, &r.IDUsuarioInsercion, &r.FechaUltMod, &r.IDUsuarioUltMod)
+		println("El nombre: ", r)
+		if err != nil {
+			// panic(err)
+			m.Error = err
+			return c.JSON(http.StatusNotFound, m)
+		}
+		return c.JSON(http.StatusOK, r)
+	} else {
+		rows, err := db.Query("SELECT id, nombre, descripcion, activo, fecha_insertada, id_usuario_insercion, fecha_ult_mod, id_usuario_ult_mod FROM roles")
+		// rows, err := db.Query("SELECT id, nombre, descripcion, activo, fecha_insertada, id_usuario_insercion FROM roles")
+
+		if err != nil {
+			panic(err)
+		}
+		defer rows.Close()
+		// rAll := make([]rol, 0)
+
+		for rows.Next() {
+			err := rows.Scan(&r.ID, &r.Nombre, &r.Descripcion, &r.Activo, &r.FechaInsertada, &r.IDUsuarioInsercion, &r.FechaUltMod, &r.IDUsuarioUltMod)
+			if err != nil {
+				panic(err)
+			}
+			is := rol{r.ID, r.Nombre, r.Descripcion, r.Activo, r.FechaInsertada, r.IDUsuarioInsercion, r.FechaUltMod, r.IDUsuarioUltMod}
+			rAll = append(rAll, is)
+			fmt.Printf("\nIndex: %d - Nombre: %s ", r.ID, r.Nombre)
+		}
+		err = rows.Err()
+		if err != nil {
+			panic(err)
+		}
+		return c.JSON(http.StatusOK, rAll)
+	}
+
+	// return c.JSON(http.StatusOK, wid)
+}
+
 func rolCreate(c echo.Context) error {
 	r := &rol{
 		ID: 1,
@@ -85,50 +146,42 @@ func rolCreate(c echo.Context) error {
 	return c.JSON(http.StatusCreated, r)
 }
 
-func rolAll(c echo.Context) error {
-	r := &rol{}
+func rolUpdate(c echo.Context) error {
+	r := &rol{
+		ID: 1,
+	}
 	if err := c.Bind(r); err != nil {
 		return err
 	}
-
+	wid, _ := strconv.Atoi(c.Param("id"))
+	println("Este es el wid: ", wid)
 	db, err := sql.Open("goracle", "HARRY/123456@localhost/xe")
-
-	rows, err := db.Query("SELECT id, nombre, descripcion, activo, fecha_insertada, id_usuario_insercion, fecha_ult_mod, id_usuario_ult_mod FROM roles")
-	// rows, err := db.Query("SELECT id, nombre, descripcion, activo, fecha_insertada, id_usuario_insercion FROM roles")
-
+	// var tid int
+	_, err = db.Exec(
+		"UPDATE roles SET "+
+			"nombre = :Nombre, "+
+			"descripcion = :Descripcion, "+
+			"activo = :Activo "+
+			"FECHA_ULT_MOD = sysdate "+
+			"WHERE id = :wid",
+		sql.Named("Nombre", r.Nombre),
+		sql.Named("Descripcion", r.Descripcion),
+		sql.Named("Activo", r.Activo),
+		sql.Named("Wid", wid))
+	// var name string
+	row := db.QueryRow("SELECT ID, NOMBRE, DESCRIPCION,	ACTIVO,	FECHA_INSERTADA, ID_USUARIO_INSERCION, FECHA_ULT_MOD, ID_USUARIO_ULT_MOD FROM roles WHERE id = :1", wid)
+	err = row.Scan(&r.ID, &r.Nombre, &r.Descripcion, &r.Activo, &r.FechaInsertada, &r.IDUsuarioInsercion, &r.FechaUltMod, &r.IDUsuarioUltMod)
+	println("El nombre: ", r)
 	if err != nil {
 		panic(err)
 	}
-	defer rows.Close()
-	rAll := make([]rol, 0)
-
-	for rows.Next() {
-		err := rows.Scan(&r.ID, &r.Nombre, &r.Descripcion, &r.Activo, &r.FechaInsertada, &r.IDUsuarioInsercion, &r.FechaUltMod, &r.IDUsuarioUltMod)
-		if err != nil {
-			panic(err)
-		}
-		is := rol{r.ID, r.Nombre, r.Descripcion, r.Activo, r.FechaInsertada, r.IDUsuarioInsercion, r.FechaUltMod, r.IDUsuarioUltMod}
-		rAll = append(rAll, is)
-		fmt.Printf("\nIndex: %d - Nombre: %s ", r.ID, r.Nombre)
-
-	}
-	err = rows.Err()
-	if err != nil {
-		panic(err)
-	}
-
-	return c.JSON(http.StatusOK, rAll)
+	return c.JSON(http.StatusOK, r)
 }
 
 func main() {
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-
-	// CORS default
-	// Allows requests from any origin wth GET, HEAD, PUT, POST or DELETE method.
-	// e.Use(middleware.CORS())
-
 	// CORS restricted
 	// Allows requests from any `https://labstack.com` or `https://labstack.net` origin
 	// wth GET, PUT, POST or DELETE method.
@@ -136,33 +189,7 @@ func main() {
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete},
 	}))
-	// Middleware
-	// e.Use(middleware.Logger())
-	// e.Use(middleware.Recover())
-	// //CORS
-	// e_cors := cors.Default().Handler(e)
-	// e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-	// 	AllowOrigins: []string{"*"},
-	// 	// // AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
-	// 	// AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
-	// 	AllowHeaders: []string{"Origin", "Accept", "Content-Type", "X-Requested-With", "Authorization"},
-	// 	AllowMethods: []string{"POST", "PUT", "GET", "PATCH", "OPTIONS", "HEAD", "DELETE"},
-	// }))
-	// e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-	// 	AllowOrigins: []string{"*"},
-	// 	AllowHeaders: []string{echo.HeaderAccept, echo.HeaderAuthorization, echo.HeaderContentType, echo.HeaderXRequestedWith, echo.HeaderAccessControlAllowOrigin, echo.HeaderAllow},
-	// 	AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
-	// }))
-	// e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-	// 	AllowOrigins: []string{"*"},
-	// 	AllowHeaders: []string{echo.HeaderAccept, echo.HeaderAuthorization, echo.HeaderContentType, echo.HeaderXRequestedWith, echo.HeaderAccessControlAllowOrigin, echo.HeaderAllow},
-	// 	AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
-	// }))
-	// e.Use((echo.MIMEApplicationForm))
-	// e.Use((echo.MIMEApplicationJSON))
-	// middleware.BodyLimit()
-	// e.Use(echo.MIMEApplicationForm)
-	// e.Use(echo.MIMEApplicationJSON)
+
 	db, err := sql.Open("goracle", "HARRY/123456@localhost/xe")
 
 	// var new_user string
@@ -228,6 +255,8 @@ func main() {
 	// Routes Rols
 	e.POST("/rols", rolCreate)
 	e.GET("/rols", rolAll)
+	e.GET("/rols/:id", rolAll)
+	e.PUT("/rols/:id", rolUpdate)
 
 	// Routes Items
 
