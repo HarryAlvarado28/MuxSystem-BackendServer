@@ -47,6 +47,7 @@ type (
 		Nombre             string    `json:"nombre"`
 		Descripcion        string    `json:"descripcion"`
 		Activo             string    `json:"activo"`
+		IDBitacora         int       `json:"idBitacora"`
 		FechaInsertada     time.Time `json:"fechaInsertada"`
 		IDUsuarioInsercion int       `json:"idUsuarioInsercion"`
 		FechaUltMod        time.Time `json:"fechaUltMod"`
@@ -76,8 +77,8 @@ func rolAll(c echo.Context) error {
 	db, err := sql.Open("goracle", "HARRY/123456@localhost/xe")
 	wid, _ := strconv.Atoi(c.Param("id"))
 	if wid != 0 {
-		row := db.QueryRow("SELECT ID, NOMBRE, DESCRIPCION,	ACTIVO,	FECHA_INSERTADA, ID_USUARIO_INSERCION, FECHA_ULT_MOD, ID_USUARIO_ULT_MOD FROM roles WHERE id = :1", wid)
-		err = row.Scan(&r.ID, &r.Nombre, &r.Descripcion, &r.Activo, &r.FechaInsertada, &r.IDUsuarioInsercion, &r.FechaUltMod, &r.IDUsuarioUltMod)
+		row := db.QueryRow("SELECT ID, NOMBRE, DESCRIPCION,	ACTIVO,	ID_BITACORA, FECHA_INSERCION, ID_USUARIO_INSERCION, FECHA_ULT_MOD, ID_USUARIO_ULT_MOD FROM vrol WHERE id = :1", wid)
+		err = row.Scan(&r.ID, &r.Nombre, &r.Descripcion, &r.Activo, &r.IDBitacora, &r.FechaInsertada, &r.IDUsuarioInsercion, &r.FechaUltMod, &r.IDUsuarioUltMod)
 		println("El nombre: ", r)
 		if err != nil {
 			// panic(err)
@@ -86,21 +87,19 @@ func rolAll(c echo.Context) error {
 		}
 		return c.JSON(http.StatusOK, r)
 	} else {
-		rows, err := db.Query("SELECT id, nombre, descripcion, activo, fecha_insertada, id_usuario_insercion, fecha_ult_mod, id_usuario_ult_mod FROM roles")
-		// rows, err := db.Query("SELECT id, nombre, descripcion, activo, fecha_insertada, id_usuario_insercion FROM roles")
+		rows, err := db.Query("SELECT ID, NOMBRE, DESCRIPCION,	ACTIVO,	ID_BITACORA, FECHA_INSERCION, ID_USUARIO_INSERCION, FECHA_ULT_MOD, ID_USUARIO_ULT_MOD FROM vrol")
 
 		if err != nil {
 			panic(err)
 		}
 		defer rows.Close()
-		// rAll := make([]rol, 0)
 
 		for rows.Next() {
-			err := rows.Scan(&r.ID, &r.Nombre, &r.Descripcion, &r.Activo, &r.FechaInsertada, &r.IDUsuarioInsercion, &r.FechaUltMod, &r.IDUsuarioUltMod)
+			err := rows.Scan(&r.ID, &r.Nombre, &r.Descripcion, &r.Activo, &r.IDBitacora, &r.FechaInsertada, &r.IDUsuarioInsercion, &r.FechaUltMod, &r.IDUsuarioUltMod)
 			if err != nil {
 				panic(err)
 			}
-			is := rol{r.ID, r.Nombre, r.Descripcion, r.Activo, r.FechaInsertada, r.IDUsuarioInsercion, r.FechaUltMod, r.IDUsuarioUltMod}
+			is := rol{r.ID, r.Nombre, r.Descripcion, r.Activo, r.IDBitacora, r.FechaInsertada, r.IDUsuarioInsercion, r.FechaUltMod, r.IDUsuarioUltMod}
 			rAll = append(rAll, is)
 			fmt.Printf("\nIndex: %d - Nombre: %s ", r.ID, r.Nombre)
 		}
@@ -111,7 +110,7 @@ func rolAll(c echo.Context) error {
 		return c.JSON(http.StatusOK, rAll)
 	}
 
-	// return c.JSON(http.StatusOK, wid)
+	return c.JSON(http.StatusOK, wid)
 }
 
 func rolCreate(c echo.Context) error {
