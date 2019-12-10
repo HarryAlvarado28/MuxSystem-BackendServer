@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo"
@@ -96,7 +97,11 @@ func userAll(c echo.Context) error {
 	if wid != 0 {
 		row := db.QueryRow("SELECT id, nombre, apellido, fecha_nacimiento, genero, telefono, email,id_rol, rol_nombre, id_bitacora, fecha_insercion, id_usuario_insercion, fecha_ult_mod, id_usuario_ult_mod FROM vusuario WHERE id = :1", wid)
 		err = row.Scan(&u.ID, &u.Nombre, &u.Apellido, &u.FechaNacimiento, &u.Genero, &u.Telefono, &u.Email, &u.IDRol, &u.NombreRol, &u.IDBitacora, &u.FechaInsercion, &u.IDUsuarioInsercion, &u.FechaUltMod, &u.IDUsuarioUltMod)
-		println("El nombre: ", u)
+		println("El nombre: ", u.Nombre)
+
+		row = db.QueryRow("SELECT username, password, activo FROM tuserlogin WHERE	id_tusuario = :1", wid)
+		err = row.Scan(&u.Username, &u.Password, &u.Activo)
+		println("El Username: ", u.Username)
 		if err != nil {
 			// panic(err)
 			m.Error = err
@@ -137,11 +142,12 @@ func userCreate(c echo.Context) error {
 	}
 	db, err := sql.Open("goracle", "HARRY/123456@localhost/xe")
 	var idTb, idTu int
-	_, err = db.Exec("BEGIN pkg_usuario.crear(vi_nombre => :1, vi_apellido => :2, vi_fecha_nacimiento => :3, vi_genero => :4, vi_telefono => :5, vi_email => :6, vi_id_trol => :7, vi_username => :8, vi_password => :9, vi_activo => :10, vi_id_usuario_insercion => :11, id_tu => :12, id_tb => :13); END;", u.Nombre, u.Apellido, u.FechaNacimiento, u.Genero, u.Telefono, u.Email, u.IDRol, u.Username, u.Password, u.Activo, u.IDUsuarioInsercion, sql.Out{Dest: &idTu}, sql.Out{Dest: &idTb})
+	_, err = db.Exec("BEGIN pkg_usuario.crear(vi_nombre => :1, vi_apellido => :2, vi_fecha_nacimiento => :3, vi_genero => :4, vi_telefono => :5, vi_email => :6, vi_id_trol => :7, vi_username => :8, vi_password => :9, vi_activo => :10, vi_id_usuario_insercion => :11, id_tu => :12, id_tb => :13); END;", u.Nombre, u.Apellido, u.FechaNacimiento, u.Genero, u.Telefono, strings.ToLower(u.Email), u.IDRol, strings.ToLower(u.Username), u.Password, u.Activo, u.IDUsuarioInsercion, sql.Out{Dest: &idTu}, sql.Out{Dest: &idTb})
 	u.ID = idTu
 
 	row := db.QueryRow("SELECT id, nombre, apellido, fecha_nacimiento, genero, telefono, email,id_rol, rol_nombre, id_bitacora, fecha_insercion, id_usuario_insercion, fecha_ult_mod, id_usuario_ult_mod FROM vusuario WHERE id = :1", idTu)
 	err = row.Scan(&u.ID, &u.Nombre, &u.Apellido, &u.FechaNacimiento, &u.Genero, &u.Telefono, &u.Email, &u.IDRol, &u.NombreRol, &u.IDBitacora, &u.FechaInsercion, &u.IDUsuarioInsercion, &u.FechaUltMod, &u.IDUsuarioUltMod)
+
 	println("El nombre: ", u)
 	if err != nil {
 		panic(err)
@@ -162,7 +168,7 @@ func userUpdate(c echo.Context) error {
 	println("Este es el PUT-USER wid: ", wid)
 	db, err := sql.Open("goracle", "HARRY/123456@localhost/xe")
 	println("Apellido en: ", u.Apellido)
-	_, err = db.Exec("BEGIN pkg_usuario.actualizar(vi_id => :1, vi_nombre => :2, vi_apellido => :3, vi_fecha_nacimiento => :4, vi_genero => :5, vi_telefono => :6, vi_email => :7, vi_id_trol => :8, vi_username => :9, vi_password => :10, vi_activo => :11, vi_id_usuario => :12); commit; END;", wid, u.Nombre, u.Apellido, u.FechaNacimiento, u.Genero, u.Telefono, u.Email, u.IDRol, u.Username, u.Password, u.Activo, u.IDUsuarioInsercion)
+	_, err = db.Exec("BEGIN pkg_usuario.actualizar(vi_id => :1, vi_nombre => :2, vi_apellido => :3, vi_fecha_nacimiento => :4, vi_genero => :5, vi_telefono => :6, vi_email => :7, vi_id_trol => :8, vi_username => :9, vi_password => :10, vi_activo => :11, vi_id_usuario => :12); commit; END;", wid, u.Nombre, u.Apellido, u.FechaNacimiento, u.Genero, u.Telefono, strings.ToLower(u.Email), u.IDRol, strings.ToLower(u.Username), u.Password, u.Activo, u.IDUsuarioInsercion)
 	if err != nil {
 		panic(err)
 	}
@@ -292,6 +298,62 @@ func rolUpdate(c echo.Context) error {
 	return c.JSON(http.StatusOK, r)
 }
 
+type (
+	userlogin struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+)
+
+func userLogin(c echo.Context) error {
+	ul := &userlogin{}
+	u := &usuario{}
+	if err := c.Bind(ul); err != nil {
+		return err
+	}
+	fmt.Printf("->>> - Username [%s] - Password [%s]\n", ul.Username, ul.Password)
+	db, err := sql.Open("goracle", "HARRY/123456@localhost/xe")
+	rows, err := db.Query("SELECT id, username, password, id_tusuario, activo  FROM tuserlogin")
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+	var outID, outIDUsuario int
+	var outUsername, outPassword, outActivo string
+	auth := false
+	for rows.Next() {
+		err := rows.Scan(&outID, &outUsername, &outPassword, &outIDUsuario, &outActivo)
+		if err != nil {
+			panic(err)
+		}
+		if strings.ToLower(ul.Username) == outUsername && ul.Password == outPassword {
+
+			fmt.Printf("¡¡Las credenciales coindicen!! IDUSER: [%d] - Username [%s] - Password [%s]\n", outIDUsuario, outUsername, outPassword)
+			row := db.QueryRow("SELECT id, nombre, apellido, fecha_nacimiento, genero, telefono, email,id_rol, rol_nombre, id_bitacora, fecha_insercion, id_usuario_insercion, fecha_ult_mod, id_usuario_ult_mod FROM vusuario WHERE id = :1", outIDUsuario)
+			err = row.Scan(&u.ID, &u.Nombre, &u.Apellido, &u.FechaNacimiento, &u.Genero, &u.Telefono, &u.Email, &u.IDRol, &u.NombreRol, &u.IDBitacora, &u.FechaInsercion, &u.IDUsuarioInsercion, &u.FechaUltMod, &u.IDUsuarioUltMod)
+			u.Username = outUsername
+			u.Password = outPassword
+			u.Activo = outActivo
+			println("El nombre: ", u.Nombre)
+			if err != nil {
+				panic(err)
+			}
+			auth = true
+			break
+		}
+		fmt.Printf("ID: [%d] - Username [%s] - Password [%s]\n", outIDUsuario, outUsername, outPassword)
+	}
+	err = rows.Err()
+	if err != nil {
+		panic(err)
+	}
+	if auth {
+		return c.JSON(http.StatusOK, u)
+	} else {
+		return c.JSON(http.StatusOK, ul)
+	}
+}
+
 func main() {
 	e := echo.New()
 	e.Use(middleware.Logger())
@@ -361,6 +423,9 @@ func main() {
 		return c.HTML(http.StatusOK, string(indexHTML))
 		// return c.String(http.StatusOK, "Hello, World! "+hello)
 	})
+
+	// Routes UserLogin
+	e.POST("/ul", userLogin)
 
 	// Routes Users
 	e.POST("/users", userCreate)
