@@ -80,29 +80,6 @@ type (
 	}
 )
 
-func userCreate(c echo.Context) error {
-	u := &usuario{}
-	if err := c.Bind(u); err != nil {
-		return err
-	}
-	db, err := sql.Open("goracle", "HARRY/123456@localhost/xe")
-	var idTb, idTu int
-	_, err = db.Exec("BEGIN pkg_usuario.crear(vi_nombre => :1, vi_apellido => :2, vi_fecha_nacimiento => :3, vi_genero => :4, vi_telefono => :5, vi_email => :6, vi_id_trol => :7, vi_username => :8, vi_password => :9, vi_activo => :10, vi_id_usuario_insercion => :11, id_tu => :12, id_tb => :13); END;", u.Nombre, u.Apellido, u.FechaNacimiento, u.Genero, u.Telefono, u.Email, u.IDRol, u.Username, u.Password, u.Activo, u.IDUsuarioInsercion, sql.Out{Dest: &idTu}, sql.Out{Dest: &idTb})
-	u.ID = idTu
-
-	row := db.QueryRow("SELECT id, nombre, apellido, fecha_nacimiento, genero, telefono, email,id_rol, rol_nombre, id_bitacora, fecha_insercion, id_usuario_insercion, fecha_ult_mod, id_usuario_ult_mod FROM vusuario WHERE id = :1", idTu)
-	err = row.Scan(&u.ID, &u.Nombre, &u.Apellido, &u.FechaNacimiento, &u.Genero, &u.Telefono, &u.Email, &u.IDRol, &u.NombreRol, &u.IDBitacora, &u.FechaInsercion, &u.IDUsuarioInsercion, &u.FechaUltMod, &u.IDUsuarioUltMod)
-	println("El nombre: ", u)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("\nID [%d] del USUARIO [%s] insertado\n", idTu, u.Nombre)
-	// return c.JSON(http.StatusOK, u)
-
-	// println("Nombre del ROL: ", u.Nombre)
-	return c.JSON(http.StatusCreated, u)
-}
-
 func userAll(c echo.Context) error {
 	m := &mensaje{
 		ID:      02,
@@ -151,6 +128,52 @@ func userAll(c echo.Context) error {
 	}
 
 	// return c.JSON(http.StatusOK, wid)
+}
+
+func userCreate(c echo.Context) error {
+	u := &usuario{}
+	if err := c.Bind(u); err != nil {
+		return err
+	}
+	db, err := sql.Open("goracle", "HARRY/123456@localhost/xe")
+	var idTb, idTu int
+	_, err = db.Exec("BEGIN pkg_usuario.crear(vi_nombre => :1, vi_apellido => :2, vi_fecha_nacimiento => :3, vi_genero => :4, vi_telefono => :5, vi_email => :6, vi_id_trol => :7, vi_username => :8, vi_password => :9, vi_activo => :10, vi_id_usuario_insercion => :11, id_tu => :12, id_tb => :13); END;", u.Nombre, u.Apellido, u.FechaNacimiento, u.Genero, u.Telefono, u.Email, u.IDRol, u.Username, u.Password, u.Activo, u.IDUsuarioInsercion, sql.Out{Dest: &idTu}, sql.Out{Dest: &idTb})
+	u.ID = idTu
+
+	row := db.QueryRow("SELECT id, nombre, apellido, fecha_nacimiento, genero, telefono, email,id_rol, rol_nombre, id_bitacora, fecha_insercion, id_usuario_insercion, fecha_ult_mod, id_usuario_ult_mod FROM vusuario WHERE id = :1", idTu)
+	err = row.Scan(&u.ID, &u.Nombre, &u.Apellido, &u.FechaNacimiento, &u.Genero, &u.Telefono, &u.Email, &u.IDRol, &u.NombreRol, &u.IDBitacora, &u.FechaInsercion, &u.IDUsuarioInsercion, &u.FechaUltMod, &u.IDUsuarioUltMod)
+	println("El nombre: ", u)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("\nID [%d] del USUARIO [%s] insertado\n", idTu, u.Nombre)
+	// return c.JSON(http.StatusOK, u)
+
+	// println("Nombre del ROL: ", u.Nombre)
+	return c.JSON(http.StatusCreated, u)
+}
+
+func userUpdate(c echo.Context) error {
+	u := &usuario{}
+	if err := c.Bind(u); err != nil {
+		return err
+	}
+	wid, _ := strconv.Atoi(c.Param("id"))
+	println("Este es el PUT-USER wid: ", wid)
+	db, err := sql.Open("goracle", "HARRY/123456@localhost/xe")
+	println("Apellido en: ", u.Apellido)
+	_, err = db.Exec("BEGIN pkg_usuario.actualizar(vi_id => :1, vi_nombre => :2, vi_apellido => :3, vi_fecha_nacimiento => :4, vi_genero => :5, vi_telefono => :6, vi_email => :7, vi_id_trol => :8, vi_username => :9, vi_password => :10, vi_activo => :11, vi_id_usuario => :12); commit; END;", wid, u.Nombre, u.Apellido, u.FechaNacimiento, u.Genero, u.Telefono, u.Email, u.IDRol, u.Username, u.Password, u.Activo, u.IDUsuarioInsercion)
+	if err != nil {
+		panic(err)
+	}
+	row := db.QueryRow("SELECT id, nombre, apellido, fecha_nacimiento, genero, telefono, email,id_rol, rol_nombre, id_bitacora, fecha_insercion, id_usuario_insercion, fecha_ult_mod, id_usuario_ult_mod FROM vusuario WHERE id = :1", wid)
+	err = row.Scan(&u.ID, &u.Nombre, &u.Apellido, &u.FechaNacimiento, &u.Genero, &u.Telefono, &u.Email, &u.IDRol, &u.NombreRol, &u.IDBitacora, &u.FechaInsercion, &u.IDUsuarioInsercion, &u.FechaUltMod, &u.IDUsuarioUltMod)
+	println("El nombre: ", u.Nombre)
+
+	if err != nil {
+		panic(err)
+	}
+	return c.JSON(http.StatusOK, u)
 }
 
 type (
@@ -343,6 +366,7 @@ func main() {
 	e.POST("/users", userCreate)
 	e.GET("/users", userAll)
 	e.GET("/users/:id", userAll)
+	e.PUT("/users/:id", userUpdate)
 
 	// Routes Rols
 	e.POST("/rols", rolCreate)
