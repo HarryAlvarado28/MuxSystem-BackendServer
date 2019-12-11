@@ -118,6 +118,9 @@ func userAll(c echo.Context) error {
 
 		for rows.Next() {
 			err := rows.Scan(&u.ID, &u.Nombre, &u.Apellido, &u.FechaNacimiento, &u.Genero, &u.Telefono, &u.Email, &u.IDRol, &u.NombreRol, &u.IDBitacora, &u.FechaInsercion, &u.IDUsuarioInsercion, &u.FechaUltMod, &u.IDUsuarioUltMod)
+			row1 := db.QueryRow("SELECT username, password, activo FROM tuserlogin WHERE	id_tusuario = :1", u.ID)
+			err = row1.Scan(&u.Username, &u.Password, &u.Activo)
+			println("El Username: ", u.Username)
 			if err != nil {
 				panic(err)
 			}
@@ -181,6 +184,8 @@ func userUpdate(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, u)
 }
+
+// --- ROL ROUTES -------------------------------
 
 type (
 	rol struct {
@@ -298,6 +303,8 @@ func rolUpdate(c echo.Context) error {
 	return c.JSON(http.StatusOK, r)
 }
 
+// --- LOGIN ROUTES -------------------------------
+
 type (
 	userlogin struct {
 		Username string `json:"username"`
@@ -352,6 +359,120 @@ func userLogin(c echo.Context) error {
 	} else {
 		return c.JSON(http.StatusOK, ul)
 	}
+}
+
+// --- AREA ROUTES -------------------------------
+
+type (
+	area struct {
+		ID                 int       `json:"id"`
+		Nombre             string    `json:"nombre"`
+		Descripcion        string    `json:"descripcion"`
+		IDBitacora         int       `json:"idBitacora"`
+		FechaInsertada     time.Time `json:"fechaInsertada"`
+		IDUsuarioInsercion int       `json:"idUsuarioInsercion"`
+		FechaUltMod        time.Time `json:"fechaUltMod"`
+		IDUsuarioUltMod    int       `json:"idUsuarioUltMod"`
+	}
+)
+
+func areaAll(c echo.Context) error {
+	m := &mensaje{
+		ID:      02,
+		Mensaje: "Elemento no encontrado",
+	}
+	a := &area{}
+	if err := c.Bind(a); err != nil {
+		return err
+	}
+	aAll := make([]area, 0)
+
+	db, err := sql.Open("goracle", "HARRY/123456@localhost/xe")
+	wid, _ := strconv.Atoi(c.Param("id"))
+	if wid != 0 {
+		row := db.QueryRow("SELECT ID, NOMBRE, DESCRIPCION,	ID_BITACORA, FECHA_INSERCION, ID_USUARIO_INSERCION, FECHA_ULT_MOD, ID_USUARIO_ULT_MOD FROM varea WHERE id = :1", wid)
+		err = row.Scan(&a.ID, &a.Nombre, &a.Descripcion, &a.IDBitacora, &a.FechaInsertada, &a.IDUsuarioInsercion, &a.FechaUltMod, &a.IDUsuarioUltMod)
+		println("El nombre: ", a)
+		if err != nil {
+			// panic(err)
+			m.Error = err
+			return c.JSON(http.StatusNotFound, m)
+		}
+		return c.JSON(http.StatusOK, a)
+	} else {
+		rows, err := db.Query("SELECT ID, NOMBRE, DESCRIPCION,	ID_BITACORA, FECHA_INSERCION, ID_USUARIO_INSERCION, FECHA_ULT_MOD, ID_USUARIO_ULT_MOD FROM varea")
+
+		if err != nil {
+			panic(err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			err := rows.Scan(&a.ID, &a.Nombre, &a.Descripcion, &a.IDBitacora, &a.FechaInsertada, &a.IDUsuarioInsercion, &a.FechaUltMod, &a.IDUsuarioUltMod)
+			if err != nil {
+				panic(err)
+			}
+			is := area{a.ID, a.Nombre, a.Descripcion, a.IDBitacora, a.FechaInsertada, a.IDUsuarioInsercion, a.FechaUltMod, a.IDUsuarioUltMod}
+			aAll = append(aAll, is)
+			fmt.Printf("\nIndex: %d - Nombre: %s ", a.ID, a.Nombre)
+		}
+		err = rows.Err()
+		if err != nil {
+			panic(err)
+		}
+		return c.JSON(http.StatusOK, aAll)
+	}
+
+	return c.JSON(http.StatusOK, wid)
+}
+
+func areaCreate(c echo.Context) error {
+	a := &area{
+		ID: 1,
+	}
+	if err := c.Bind(a); err != nil {
+		return err
+	}
+
+	db, err := sql.Open("goracle", "HARRY/123456@localhost/xe")
+	var voIDTa, voIDTb int
+	_, err = db.Exec("BEGIN pkg_area.crear(vi_nombre => :1, vi_descripcion => :2, vi_id_usuario_insercion => :3, vo_id_ta => :4, vo_id_tb => :5); END;", a.Nombre, a.Descripcion, a.IDUsuarioInsercion, sql.Out{Dest: &voIDTa}, sql.Out{Dest: &voIDTb})
+	a.ID = voIDTa
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("\nID del valor insertado %v\n", voIDTa)
+	row := db.QueryRow("SELECT ID, NOMBRE, DESCRIPCION,	ID_BITACORA, FECHA_INSERCION, ID_USUARIO_INSERCION, FECHA_ULT_MOD, ID_USUARIO_ULT_MOD FROM varea WHERE id = :1", voIDTa)
+	err = row.Scan(&a.ID, &a.Nombre, &a.Descripcion, &a.IDBitacora, &a.FechaInsertada, &a.IDUsuarioInsercion, &a.FechaUltMod, &a.IDUsuarioUltMod)
+	println("El nombre: ", a)
+	if err != nil {
+		panic(err)
+	}
+	println("Nombre del AREA: ", a.Nombre)
+	return c.JSON(http.StatusCreated, a)
+}
+
+func areaUpdate(c echo.Context) error {
+	a := &area{
+		ID: 1,
+	}
+	if err := c.Bind(a); err != nil {
+		return err
+	}
+	wid, _ := strconv.Atoi(c.Param("id"))
+	println("Este es el PUT-AREA wid: ", wid)
+	db, err := sql.Open("goracle", "HARRY/123456@localhost/xe")
+	var voIDTa, voIDTb int
+	_, err = db.Exec("BEGIN pkg_area.actualizar(vi_id => :1, vi_nombre => :2, vi_descripcion => :3, vi_id_usuario_insercion => :4, vo_id_ta => :5, vo_id_tb => :6); END;", wid, a.Nombre, a.Descripcion, a.IDUsuarioInsercion, voIDTa, voIDTb)
+
+	row := db.QueryRow("SELECT ID, NOMBRE, DESCRIPCION,	ID_BITACORA, FECHA_INSERCION, ID_USUARIO_INSERCION, FECHA_ULT_MOD, ID_USUARIO_ULT_MOD FROM varea WHERE id = :1", wid)
+	err = row.Scan(&a.ID, &a.Nombre, &a.Descripcion, &a.IDBitacora, &a.FechaInsertada, &a.IDUsuarioInsercion, &a.FechaUltMod, &a.IDUsuarioUltMod)
+
+	println("El nombre: ", a)
+	if err != nil {
+		panic(err)
+	}
+	return c.JSON(http.StatusOK, a)
 }
 
 func main() {
@@ -438,6 +559,12 @@ func main() {
 	e.GET("/rols", rolAll)
 	e.GET("/rols/:id", rolAll)
 	e.PUT("/rols/:id", rolUpdate)
+
+	// Routes Area
+	e.POST("/areas", areaCreate)
+	e.GET("/areas", areaAll)
+	e.GET("/areas/:id", areaAll)
+	e.PUT("/areas/:id", areaUpdate)
 
 	// Routes Items
 
