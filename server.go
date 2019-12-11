@@ -475,6 +475,124 @@ func areaUpdate(c echo.Context) error {
 	return c.JSON(http.StatusOK, a)
 }
 
+// --- COLECCION ROUTES -------------------------------
+
+type (
+	coleccion struct {
+		ID                 int       `json:"id"`
+		Nombre             string    `json:"nombre"`
+		Descripcion        string    `json:"descripcion"`
+		DescripcionL       string    `json:"descripcionL"`
+		URLImg             string    `json:"urlImg"`
+		IDArea             int       `json:"idArea"`
+		NombreArea         string    `json:"nombreArea"`
+		IDBitacora         int       `json:"idBitacora"`
+		FechaInsertada     time.Time `json:"fechaInsertada"`
+		IDUsuarioInsercion int       `json:"idUsuarioInsercion"`
+		FechaUltMod        time.Time `json:"fechaUltMod"`
+		IDUsuarioUltMod    int       `json:"idUsuarioUltMod"`
+	}
+)
+
+func coleccionAll(c echo.Context) error {
+	m := &mensaje{
+		ID:      02,
+		Mensaje: "Elemento no encontrado",
+	}
+	co := &coleccion{}
+	if err := c.Bind(co); err != nil {
+		return err
+	}
+	coAll := make([]coleccion, 0)
+
+	db, err := sql.Open("goracle", "HARRY/123456@localhost/xe")
+	wid, _ := strconv.Atoi(c.Param("id"))
+	if wid != 0 {
+		row := db.QueryRow("SELECT ID, NOMBRE, DESCRIPCION, DESCRIPCION_L, URL_IMG, ID_AREA, NOMBRE_AREA, ID_BITACORA, FECHA_INSERCION, ID_USUARIO_INSERCION, FECHA_ULT_MOD, ID_USUARIO_ULT_MOD FROM vcoleccion WHERE id = :1", wid)
+		err = row.Scan(&co.ID, &co.Nombre, &co.Descripcion, &co.DescripcionL, &co.URLImg, &co.IDArea, &co.NombreArea, &co.IDBitacora, &co.FechaInsertada, &co.IDUsuarioInsercion, &co.FechaUltMod, &co.IDUsuarioUltMod)
+		println("El nombre: ", co.Nombre)
+		if err != nil {
+			// panic(err)
+			m.Error = err
+			return c.JSON(http.StatusNotFound, m)
+		}
+		return c.JSON(http.StatusOK, co)
+	} else {
+		rows, err := db.Query("SELECT ID, NOMBRE, DESCRIPCION, DESCRIPCION_L, URL_IMG, ID_AREA, NOMBRE_AREA, ID_BITACORA, FECHA_INSERCION, ID_USUARIO_INSERCION, FECHA_ULT_MOD, ID_USUARIO_ULT_MOD FROM vcoleccion")
+
+		if err != nil {
+			panic(err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			err := rows.Scan(&co.ID, &co.Nombre, &co.Descripcion, &co.DescripcionL, &co.URLImg, &co.IDArea, &co.NombreArea, &co.IDBitacora, &co.FechaInsertada, &co.IDUsuarioInsercion, &co.FechaUltMod, &co.IDUsuarioUltMod)
+			if err != nil {
+				panic(err)
+			}
+			is := coleccion{co.ID, co.Nombre, co.Descripcion, co.DescripcionL, co.URLImg, co.IDArea, co.NombreArea, co.IDBitacora, co.FechaInsertada, co.IDUsuarioInsercion, co.FechaUltMod, co.IDUsuarioUltMod}
+			coAll = append(coAll, is)
+			fmt.Printf("\nIndex: %d - Nombre: %s ", co.ID, co.Nombre)
+		}
+		err = rows.Err()
+		if err != nil {
+			panic(err)
+		}
+		return c.JSON(http.StatusOK, coAll)
+	}
+
+	return c.JSON(http.StatusOK, wid)
+}
+
+func coleccionCreate(c echo.Context) error {
+	co := &coleccion{
+		ID: 1,
+	}
+	if err := c.Bind(co); err != nil {
+		return err
+	}
+
+	db, err := sql.Open("goracle", "HARRY/123456@localhost/xe")
+	var voIDTc, voIDTb int
+	_, err = db.Exec("BEGIN pkg_coleccion.crear(vi_nombre => :1, vi_descripcion => :2,vi_descripcion_l => :3, vi_url_img => :4, vi_id_usuario_insercion => :5, vi_id_ta => :6, vo_id_tc => :7,vo_id_tb => :8); END;", co.Nombre, co.Descripcion, co.DescripcionL, co.URLImg, co.IDUsuarioInsercion, co.IDArea, sql.Out{Dest: &voIDTc}, sql.Out{Dest: &voIDTb})
+	co.ID = voIDTc
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("\nID del valor insertado %v\n", voIDTc)
+	row := db.QueryRow("SELECT ID, NOMBRE, DESCRIPCION, DESCRIPCION_L, URL_IMG, ID_AREA, NOMBRE_AREA, ID_BITACORA, FECHA_INSERCION, ID_USUARIO_INSERCION, FECHA_ULT_MOD, ID_USUARIO_ULT_MOD FROM vcoleccion WHERE id = :1", voIDTc)
+	err = row.Scan(&co.ID, &co.Nombre, &co.Descripcion, &co.DescripcionL, &co.URLImg, &co.IDArea, &co.NombreArea, &co.IDBitacora, &co.FechaInsertada, &co.IDUsuarioInsercion, &co.FechaUltMod, &co.IDUsuarioUltMod)
+	println("CREATE - - El nombre: ", co.Nombre)
+	if err != nil {
+		panic(err)
+	}
+	println("Nombre del COLECCION: ", co.Nombre)
+	return c.JSON(http.StatusCreated, co)
+}
+
+func coleccionUpdate(c echo.Context) error {
+	co := &coleccion{
+		ID: 1,
+	}
+	if err := c.Bind(co); err != nil {
+		return err
+	}
+	wid, _ := strconv.Atoi(c.Param("id"))
+	println("Este es el PUT-AREA wid: ", wid)
+	db, err := sql.Open("goracle", "HARRY/123456@localhost/xe")
+	var voIDTb int
+	_, err = db.Exec("BEGIN pkg_coleccion.actualizar(vi_id=>:1, vi_nombre=>:2, vi_descripcion=>:3, vi_descripcion_l=>:4, vi_url_img=>:5, vi_id_usuario_insercion=>:6, vi_id_ta=>:7, vo_id_tb=>:8); END;", wid, co.Nombre, co.Descripcion, co.DescripcionL, co.URLImg, co.IDUsuarioInsercion, co.IDArea, voIDTb)
+
+	row := db.QueryRow("SELECT ID, NOMBRE, DESCRIPCION, DESCRIPCION_L, URL_IMG, ID_AREA, NOMBRE_AREA, ID_BITACORA, FECHA_INSERCION, ID_USUARIO_INSERCION, FECHA_ULT_MOD, ID_USUARIO_ULT_MOD FROM vcoleccion WHERE id = :1", wid)
+	err = row.Scan(&co.ID, &co.Nombre, &co.Descripcion, &co.DescripcionL, &co.URLImg, &co.IDArea, &co.NombreArea, &co.IDBitacora, &co.FechaInsertada, &co.IDUsuarioInsercion, &co.FechaUltMod, &co.IDUsuarioUltMod)
+	println("El nombre: ", co.Nombre)
+
+	if err != nil {
+		panic(err)
+	}
+	return c.JSON(http.StatusOK, co)
+}
+
 func main() {
 	e := echo.New()
 	e.Use(middleware.Logger())
@@ -566,7 +684,11 @@ func main() {
 	e.GET("/areas/:id", areaAll)
 	e.PUT("/areas/:id", areaUpdate)
 
-	// Routes Items
+	// Routes Coleccion
+	e.POST("/colecciones", coleccionCreate)
+	e.GET("/colecciones", coleccionAll)
+	e.GET("/colecciones/:id", coleccionAll)
+	e.PUT("/colecciones/:id", coleccionUpdate)
 
 	fmt.Println("Hello World!!")
 	e.Logger.Fatal(e.Start(":2828"))
